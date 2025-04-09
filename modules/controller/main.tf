@@ -63,7 +63,7 @@ resource "aws_iam_role_policy_attachment" "kms_access" {
 
 # Create controller EC2 instance
 resource "aws_instance" "controller" {
-  ami                    = data.aws_ami.amazon_linux_2.id
+  ami                    = var.ami_id
   instance_type          = var.instance_type
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [var.security_group_id]
@@ -154,20 +154,4 @@ resource "local_file" "auth_method_id" {
 data "local_file" "auth_method_id" {
   filename = "${path.module}/auth_method_id"
   depends_on = [local_file.auth_method_id]
-}
-
-# Data source for Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux_2" {
-  most_recent = true
-  owners      = ["amazon"]
-
-  filter {
-    name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
 }
