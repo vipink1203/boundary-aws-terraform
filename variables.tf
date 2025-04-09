@@ -5,22 +5,37 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
+# Existing Infrastructure IDs
+variable "vpc_id" {
+  description = "ID of the existing VPC"
   type        = string
-  default     = "10.0.0.0/16"
 }
 
-variable "public_subnets" {
-  description = "List of public subnet CIDR blocks"
+variable "public_subnet_ids" {
+  description = "List of existing public subnet IDs"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
-variable "private_subnets" {
-  description = "List of private subnet CIDR blocks"
+variable "private_subnet_ids" {
+  description = "List of existing private subnet IDs"
   type        = list(string)
-  default     = ["10.0.3.0/24", "10.0.4.0/24"]
+}
+
+variable "db_endpoint" {
+  description = "Endpoint for the existing database"
+  type        = string
+}
+
+variable "db_username" {
+  description = "Username for the existing database"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_password" {
+  description = "Password for the existing database"
+  type        = string
+  sensitive   = true
 }
 
 # Boundary Configuration
@@ -44,25 +59,6 @@ variable "controller_ami_id" {
 variable "worker_ami_id" {
   description = "ID of the custom AMI to use for the worker"
   type        = string
-}
-
-# Database Configuration
-variable "db_username" {
-  description = "Username for the database"
-  type        = string
-  sensitive   = true
-}
-
-variable "db_password" {
-  description = "Password for the database"
-  type        = string
-  sensitive   = true
-}
-
-variable "db_instance_type" {
-  description = "Instance type for the database"
-  type        = string
-  default     = "db.t3.medium"
 }
 
 # EC2 Configuration
