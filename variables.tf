@@ -5,6 +5,12 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "aws_profile" {
+  description = "AWS profile to use for authentication"
+  type        = string
+  default     = "default"
+}
+
 # Existing Infrastructure IDs
 variable "vpc_id" {
   description = "ID of the existing VPC"
