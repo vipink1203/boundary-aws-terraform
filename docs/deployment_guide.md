@@ -11,7 +11,9 @@ Before you begin, ensure you have:
 3. AWS CLI installed and configured
 4. HashiCorp Boundary Enterprise license
 5. SSH key pair for EC2 instances
-6. (Optional) Custom AMIs for controller and worker instances
+6. Existing VPC with public and private subnets
+7. Existing database instance
+8. (Optional) Custom AMIs for controller and worker instances
 
 ## Step 1: Clone the Repository
 
@@ -32,28 +34,28 @@ cp terraform.tfvars.example terraform.tfvars
 
 ```hcl
 # AWS Configuration
-aws_region     = "us-east-1"
-vpc_cidr       = "10.0.0.0/16"
-public_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
-private_subnets = ["10.0.3.0/24", "10.0.4.0/24"]
+aws_region = "us-east-1"
+
+# Existing Infrastructure IDs
+vpc_id             = "vpc-0123456789abcdef0" # Your existing VPC ID
+public_subnet_ids  = ["subnet-0123456789abcdef0", "subnet-0123456789abcdef1"] # Your public subnet IDs
+private_subnet_ids = ["subnet-0123456789abcdef2", "subnet-0123456789abcdef3"] # Your private subnet IDs
+db_endpoint        = "boundary-db.abcdefghij.us-east-1.rds.amazonaws.com:5432" # Your DB endpoint
+db_username        = "boundary" # Your DB username
+db_password        = "your-secure-password" # Your DB password
 
 # Boundary Configuration
-boundary_version = "0.15.0+ent"
+boundary_version      = "0.15.0+ent"
 boundary_license_path = "./license.hclic"
 
 # AMI Configuration
 controller_ami_id = "ami-01234567890abcdef" # Replace with your controller AMI ID
 worker_ami_id     = "ami-01234567890abcdef" # Replace with your worker AMI ID
 
-# Database Configuration
-db_username = "boundary"
-db_password = "your-secure-password" # Change this!
-db_instance_type = "db.t3.medium"
-
 # EC2 Configuration
 controller_instance_type = "t3.medium"
-worker_instance_type = "t3.medium"
-ssh_key_name = "your-key-name"
+worker_instance_type     = "t3.medium"
+ssh_key_name             = "your-key-name"
 
 # Admin Credentials
 initial_admin_username = "admin"
@@ -77,6 +79,17 @@ If you're using custom AMIs (which you've indicated in the AMI Configuration sec
    - `modules/worker/templates/worker_user_data.tmpl`
 
 3. If your AMIs already have Boundary installed, you might need to modify the user data scripts to avoid reinstallation.
+
+### Using Existing VPC and Database
+
+This deployment is designed to work with your existing infrastructure:
+
+1. Make sure your VPC has both public and private subnets properly configured
+2. Ensure your database has:
+   - PostgreSQL 12 or later
+   - A database named "boundary" (or you'll need to create it)
+   - Proper security group rules to allow connections from the controller instance
+   - The specified user with appropriate permissions
 
 ## Step 3: Add Your Boundary Enterprise License
 
@@ -111,7 +124,6 @@ After successful deployment, Terraform will output important information includi
 
 - Boundary Controller URL
 - Worker's Public IP
-- Database Endpoint
 - Admin credentials
 
 Save these values for future reference.
@@ -186,83 +198,16 @@ If you're using custom AMIs and encounter issues:
 
 5. **OS Differences**: If your AMI uses a different OS than Amazon Linux 2, package installation commands may need updating.
 
+### Common Issues with Existing VPC and Database
+
+1. **Subnet Connectivity**: Make sure your private subnets can reach the database and your public subnets have internet access.
+
+2. **Security Groups**: Ensure controller can connect to database, worker can connect to controller, and both can be accessed by the load balancer.
+
+3. **Database Permissions**: Verify the database user has CREATE, ALTER, and other necessary permissions.
+
 ## Next Steps
 
 - [Add and manage target hosts](target_management.md)
 - [Set up user accounts and authentication](user_management.md)
 - [Configure high availability](high_availability.md) (if needed)
-
-## Working with Custom AMIs
-
-### Preparing a Custom AMI for Boundary
-
-If you want to create your own custom AMI for Boundary:
-
-1. Start with a base Amazon Linux 2 or compatible OS.
-
-2. Install required dependencies:
-   ```bash
-   # Amazon Linux 2
-   sudo yum update -y
-   sudo yum install -y jq awscli postgresql-devel unzip openssl
-   
-   # Ubuntu/Debian
-   sudo apt-get update
-   sudo apt-get install -y jq awscli postgresql-client unzip openssl
-   ```
-
-3. (Optional) Pre-install Boundary:
-   ```bash
-   # For Amazon Linux 2
-   curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-   sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-   sudo yum -y install boundary-enterprise-0.15.0+ent
-   
-   # For Ubuntu/Debian
-   wget -O- https://apt.releases.hashicorp.com/gpg | gpg --dearmor | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
-   echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-   sudo apt update
-   sudo apt install boundary-enterprise
-   ```
-
-4. Create the necessary directories:
-   ```bash
-   sudo mkdir -p /etc/boundary.d/plugins
-   sudo mkdir -p /opt/boundary/config
-   sudo mkdir -p /opt/boundary/data
-   sudo mkdir -p /var/log/boundary
-   ```
-
-5. Install CloudWatch agent:
-   ```bash
-   # Amazon Linux 2
-   sudo yum install -y amazon-cloudwatch-agent
-   
-   # Ubuntu/Debian
-   wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-   sudo dpkg -i amazon-cloudwatch-agent.deb
-   ```
-
-6. Apply any security hardening specific to your organization's requirements.
-
-7. Create an AMI from the instance.
-
-### Modifying User Data Scripts
-
-If you need to modify the user data scripts to work with your custom AMI:
-
-1. Edit `modules/controller/templates/controller_user_data.tmpl` and/or `modules/worker/templates/worker_user_data.tmpl`
-
-2. If Boundary is already installed, you can comment out or remove the installation commands.
-
-3. Adjust package manager commands if you're not using Amazon Linux 2 (e.g., change `yum` to `apt-get` for Ubuntu/Debian).
-
-4. If you've pre-created directories, you might want to skip those steps.
-
-5. Consider using conditional checks in the script to handle differences gracefully:
-   ```bash
-   # Check if Boundary is already installed
-   if ! command -v boundary &> /dev/null; then
-       # Install Boundary commands here
-   fi
-   ```
