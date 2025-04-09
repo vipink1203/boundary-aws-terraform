@@ -112,16 +112,9 @@ resource "aws_cloudwatch_log_group" "controller" {
 
 # Create S3 bucket for file storage (optional)
 resource "aws_s3_bucket" "storage" {
-  bucket = "boundary-${var.name}-storage-${random_string.bucket_suffix.result}"
+  bucket = "boundary-${var.name}-storage"
   
   tags = var.common_tags
-}
-
-resource "random_string" "bucket_suffix" {
-  length  = 8
-  special = false
-  lower   = true
-  upper   = false
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "storage" {
