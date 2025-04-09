@@ -109,6 +109,7 @@ module "controller" {
   source = "./modules/controller"
 
   name                    = "${local.name_prefix}-controller-${random_id.id.hex}"
+  ami_id                  = var.controller_ami_id
   instance_type           = var.controller_instance_type
   subnet_id               = module.vpc.private_subnet_ids[0]
   security_group_id       = module.security_groups.controller_sg_id
@@ -131,6 +132,7 @@ module "worker" {
   source = "./modules/worker"
 
   name                    = "${local.name_prefix}-worker-${random_id.id.hex}"
+  ami_id                  = var.worker_ami_id
   instance_type           = var.worker_instance_type
   subnet_id               = module.vpc.public_subnet_ids[0]
   security_group_id       = module.security_groups.worker_sg_id
