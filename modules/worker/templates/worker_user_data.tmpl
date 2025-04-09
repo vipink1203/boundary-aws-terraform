@@ -1,0 +1,143 @@
+#!/bin/bash
+set -e
+
+# Update system
+yum update -y
+yum install -y jq awscli unzip
+
+# Install Boundary
+curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+yum -y install boundary-enterprise-${boundary_version}
+
+# Create Boundary directories
+mkdir -p /etc/boundary.d/plugins
+mkdir -p /opt/boundary/config
+mkdir -p /opt/boundary/data
+mkdir -p /var/log/boundary
+
+# Create license file
+cat << EOF > /opt/boundary/config/license.hclic
+${boundary_license}
+EOF
+
+# Store worker token for authentication
+echo "${controller_token}" > /opt/boundary/config/worker-token.key
+chmod 0600 /opt/boundary/config/worker-token.key
+
+# Get the instance metadata
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+
+# Create Boundary worker configuration file
+cat << EOF > /opt/boundary/config/worker.hcl
+# Worker configuration
+disable_mlock = true
+
+# Listener configuration for controller communication
+listener "worker" {
+  purpose = "proxy"
+  tls_disable = true
+}
+
+# Worker configuration
+worker {
+  name = "${worker_name}"
+  description = "Boundary worker instance"
+  
+  # Controller information
+  controllers = [
+    "127.0.0.1"  # This is a placeholder, will be replaced by the controller address
+  ]
+  
+  # Public address information
+  # This is the address that clients will use to connect to targets
+  public_addr = "$PUBLIC_IP"
+  
+  # Tags for worker identification
+  tags {
+    type = ["prod", "aws", "$REGION"]
+    instance_id = "$INSTANCE_ID"
+  }
+  
+  # Worker authentication
+  auth_storage_path = "/opt/boundary/config/worker-token.key"
+}
+
+# License configuration
+license {
+  path = "/opt/boundary/config/license.hclic"
+}
+
+# Log configuration
+log_level = "info"
+log_format = "json"
+EOF
+
+# Create systemd service
+cat << 'EOF' > /etc/systemd/system/boundary.service
+[Unit]
+Description=Boundary Worker Service
+Documentation=https://www.boundaryproject.io/docs
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/bin/boundary server -config /opt/boundary/config/worker.hcl
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Set proper permissions
+chmod 0644 /etc/systemd/system/boundary.service
+chmod 0640 /opt/boundary/config/worker.hcl
+chmod 0640 /opt/boundary/config/license.hclic
+
+# Discover controller IP (using AWS API)
+TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_IDENTITY=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/dynamic/instance-identity/document)
+REGION=$(echo $INSTANCE_IDENTITY | jq -r .region)
+
+# Update the worker configuration with the controller address
+# In this example, we're using a simple hostname-based discovery
+# In a production environment, you might want to use DNS or other service discovery methods
+CONTROLLER_TAG="boundary-controller"
+CONTROLLER_INSTANCES=$(aws ec2 describe-instances --region $REGION --filters "Name=tag:Name,Values=$CONTROLLER_TAG" --query "Reservations[].Instances[?State.Name=='running'].PrivateIpAddress" --output json)
+CONTROLLER_IP=$(echo $CONTROLLER_INSTANCES | jq -r '.[0]')
+
+if [ -n "$CONTROLLER_IP" ]; then
+  sed -i "s/127.0.0.1/$CONTROLLER_IP/" /opt/boundary/config/worker.hcl
+fi
+
+# Configure CloudWatch Logs
+cat << EOF > /etc/awslogs/awslogs.conf
+[general]
+state_file = /var/lib/awslogs/agent-state
+
+[/var/log/boundary/boundary.log]
+file = /var/log/boundary/boundary.log
+log_group_name = /boundary/worker/${worker_name}
+log_stream_name = {instance_id}
+datetime_format = %Y-%m-%dT%H:%M:%S.%f
+EOF
+
+# Start CloudWatch Logs
+yum install -y awslogs
+systemctl enable awslogsd
+systemctl start awslogsd
+
+# Enable and start Boundary service
+systemctl daemon-reload
+systemctl enable boundary
+systemctl start boundary
