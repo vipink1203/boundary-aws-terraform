@@ -4,38 +4,37 @@ This repository contains Terraform code to deploy HashiCorp Boundary in AWS for 
 
 ## Overview
 
-[HashiCorp Boundary](https://www.hashicorp.com/products/boundary) provides secure access to hosts and services with fine-grained authorization without requiring direct network access. This project sets up a production-ready Boundary deployment in AWS, with separate controller and worker nodes.
+[HashiCorp Boundary](https://www.hashicorp.com/products/boundary) provides secure access to hosts and services with fine-grained authorization without requiring direct network access. This project sets up a production-ready Boundary deployment in AWS, using your existing VPC and database infrastructure, with separate controller and worker nodes.
 
 ### Features
 
 - Production-ready (non-dev mode) deployment
 - Enterprise license support
-- Support for custom AMIs
-- Uses existing VPC and database infrastructure
 - Separate controller and worker nodes
 - AWS KMS integration for encryption
-- SSH key-based authentication for target hosts
-- Password-based authentication for Boundary users
+- Support for custom AMIs
+- Integration with existing VPC and PostgreSQL database
 
 ## Prerequisites
 
 - AWS account with appropriate permissions
 - Terraform 1.5 or later
 - HashiCorp Boundary Enterprise license
-- Existing VPC with public and private subnets
-- Existing PostgreSQL database
-- (Optional) Custom AMIs for controller and worker
-- SSH key pair for accessing instances
+- SSH key pair for accessing target hosts
+- AWS CLI configured with appropriate credentials
+- **Existing VPC** with public and private subnets
+- **Existing PostgreSQL database** (version 12+)
+- (Optional) Custom AMIs for controller and worker instances
 
 ## Architecture
 
 This deployment creates:
 
-1. **Boundary Controller**: EC2 instance running the Boundary controller service
-2. **Boundary Worker**: EC2 instance running the Boundary worker service
-3. **KMS Keys**: For data encryption
-4. **Load Balancer**: For secure access
-5. **Security Groups**: For controlling access to components
+1. **Security Groups**: For controller, worker, and load balancer components
+2. **Boundary Controller**: EC2 instance running the Boundary controller service
+3. **Boundary Worker**: EC2 instance running the Boundary worker service
+4. **KMS Keys**: For data encryption
+5. **Load Balancers**: For high availability and secure access
 
 ## Deployment Steps
 
