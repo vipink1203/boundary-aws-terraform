@@ -8,7 +8,7 @@ Before you begin, ensure you have:
 
 1. AWS account with appropriate permissions
 2. Terraform 1.5 or later installed
-3. AWS CLI installed and configured
+3. AWS CLI installed and configured with a profile
 4. HashiCorp Boundary Enterprise license
 5. SSH key pair for EC2 instances
 6. Existing VPC with public and private subnets
@@ -34,7 +34,8 @@ cp terraform.tfvars.example terraform.tfvars
 
 ```hcl
 # AWS Configuration
-aws_region = "us-east-1"
+aws_region  = "us-east-1"
+aws_profile = "your-aws-profile"  # AWS CLI profile to use
 
 # Existing Infrastructure IDs
 vpc_id             = "vpc-0123456789abcdef0" # Your existing VPC ID
@@ -90,6 +91,18 @@ This deployment is designed to work with your existing infrastructure:
    - A database named "boundary" (or you'll need to create it)
    - Proper security group rules to allow connections from the controller instance
    - The specified user with appropriate permissions
+
+### AWS Authentication
+
+The deployment uses AWS profiles for authentication:
+
+1. Ensure you have configured the AWS CLI with the appropriate profile
+2. The profile should have permissions to create:
+   - EC2 instances
+   - Security groups
+   - KMS keys
+   - Load balancers
+   - IAM roles and policies
 
 ## Step 3: Add Your Boundary Enterprise License
 
@@ -205,6 +218,14 @@ If you're using custom AMIs and encounter issues:
 2. **Security Groups**: Ensure controller can connect to database, worker can connect to controller, and both can be accessed by the load balancer.
 
 3. **Database Permissions**: Verify the database user has CREATE, ALTER, and other necessary permissions.
+
+### Common Issues with AWS Authentication
+
+1. **Profile Not Found**: Ensure the AWS profile specified in terraform.tfvars exists in your AWS CLI configuration.
+
+2. **Insufficient Permissions**: Verify that the profile has the necessary permissions to create all required resources.
+
+3. **Session Expiration**: If using temporary credentials, make sure they haven't expired.
 
 ## Next Steps
 
