@@ -3,7 +3,8 @@
 
 # Configure your provider details
 provider "aws" {
-  region = "us-east-1"
+  region  = "us-east-1"
+  profile = "your-aws-profile" # AWS CLI profile to use
 }
 
 # Define your existing infrastructure variables
@@ -39,7 +40,8 @@ module "boundary" {
   source = "../"
   
   # AWS configuration
-  aws_region = "us-east-1"
+  aws_region  = "us-east-1"
+  aws_profile = "your-aws-profile"
   
   # Existing infrastructure IDs
   vpc_id             = local.vpc_id
