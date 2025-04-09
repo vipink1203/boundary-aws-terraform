@@ -14,6 +14,7 @@ This repository contains Terraform code to deploy HashiCorp Boundary in AWS for 
 - AWS KMS integration for encryption
 - Support for custom AMIs
 - Integration with existing VPC and PostgreSQL database
+- AWS profile authentication
 
 ## Prerequisites
 
@@ -21,7 +22,7 @@ This repository contains Terraform code to deploy HashiCorp Boundary in AWS for 
 - Terraform 1.5 or later
 - HashiCorp Boundary Enterprise license
 - SSH key pair for accessing target hosts
-- AWS CLI configured with appropriate credentials
+- AWS CLI configured with appropriate credentials and profiles
 - **Existing VPC** with public and private subnets
 - **Existing PostgreSQL database** (version 12+)
 - (Optional) Custom AMIs for controller and worker instances
