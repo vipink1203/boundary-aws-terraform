@@ -13,11 +13,6 @@ output "worker_public_ip" {
   value       = module.worker.public_ip
 }
 
-output "database_endpoint" {
-  description = "Endpoint for the Boundary database"
-  value       = module.database.endpoint
-}
-
 output "auth_method_id" {
   description = "ID of the password auth method"
   value       = module.controller.auth_method_id
