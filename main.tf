@@ -27,11 +27,6 @@ locals {
   }
 }
 
-# Random ID for unique naming
-resource "random_id" "id" {
-  byte_length = 4
-}
-
 # KMS key for Boundary root encryption
 resource "aws_kms_key" "boundary_root" {
   description             = "Boundary root encryption key"
@@ -41,7 +36,7 @@ resource "aws_kms_key" "boundary_root" {
 }
 
 resource "aws_kms_alias" "boundary_root" {
-  name          = "alias/boundary-root-${random_id.id.hex}"
+  name          = "alias/boundary-root"
   target_key_id = aws_kms_key.boundary_root.key_id
 }
 
@@ -54,7 +49,7 @@ resource "aws_kms_key" "boundary_worker_auth" {
 }
 
 resource "aws_kms_alias" "boundary_worker_auth" {
-  name          = "alias/boundary-worker-auth-${random_id.id.hex}"
+  name          = "alias/boundary-worker-auth"
   target_key_id = aws_kms_key.boundary_worker_auth.key_id
 }
 
@@ -67,7 +62,7 @@ resource "aws_kms_key" "boundary_recovery" {
 }
 
 resource "aws_kms_alias" "boundary_recovery" {
-  name          = "alias/boundary-recovery-${random_id.id.hex}"
+  name          = "alias/boundary-recovery"
   target_key_id = aws_kms_key.boundary_recovery.key_id
 }
 
@@ -84,7 +79,7 @@ module "security_groups" {
 module "controller" {
   source = "./modules/controller"
 
-  name                    = "${local.name_prefix}-controller-${random_id.id.hex}"
+  name                    = "${local.name_prefix}-controller"
   ami_id                  = var.controller_ami_id
   instance_type           = var.controller_instance_type
   subnet_id               = var.private_subnet_ids[0]
@@ -107,7 +102,7 @@ module "controller" {
 module "worker" {
   source = "./modules/worker"
 
-  name                    = "${local.name_prefix}-worker-${random_id.id.hex}"
+  name                    = "${local.name_prefix}-worker"
   ami_id                  = var.worker_ami_id
   instance_type           = var.worker_instance_type
   subnet_id               = var.public_subnet_ids[0]
@@ -123,7 +118,7 @@ module "worker" {
 module "load_balancer" {
   source = "./modules/load_balancer"
 
-  name                = "${local.name_prefix}-lb-${random_id.id.hex}"
+  name                = "${local.name_prefix}-lb"
   vpc_id              = var.vpc_id
   public_subnet_ids   = var.public_subnet_ids
   security_group_id   = module.security_groups.lb_sg_id
