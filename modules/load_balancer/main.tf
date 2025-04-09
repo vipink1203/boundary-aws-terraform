@@ -21,7 +21,7 @@ resource "aws_lb_target_group" "controller_api" {
   name     = "${var.name}-controller-api"
   port     = 9200
   protocol = "HTTPS"
-  vpc_id   = data.aws_subnet.first_subnet.vpc_id
+  vpc_id   = var.vpc_id
   
   health_check {
     protocol            = "HTTPS"
@@ -46,7 +46,7 @@ resource "aws_lb_target_group" "worker_proxy" {
   name     = "${var.name}-worker-proxy"
   port     = 9202
   protocol = "HTTP"
-  vpc_id   = data.aws_subnet.first_subnet.vpc_id
+  vpc_id   = var.vpc_id
   
   health_check {
     protocol            = "HTTP"
@@ -154,9 +154,4 @@ resource "aws_acm_certificate" "boundary" {
   lifecycle {
     create_before_destroy = true
   }
-}
-
-# Get VPC information from subnet
-data "aws_subnet" "first_subnet" {
-  id = var.public_subnet_ids[0]
 }
