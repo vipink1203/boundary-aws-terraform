@@ -1,0 +1,182 @@
+#!/bin/bash
+set -e
+
+# Update system
+yum update -y
+yum install -y jq awscli postgresql-devel unzip
+
+# Install Boundary
+curl -fsSL https://apt.releases.hashicorp.com/gpg | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
+yum -y install boundary-enterprise-${boundary_version}
+
+# Create Boundary directories
+mkdir -p /etc/boundary.d/plugins
+mkdir -p /opt/boundary/config
+mkdir -p /opt/boundary/data
+mkdir -p /var/log/boundary
+
+# Create license file
+cat << EOF > /opt/boundary/config/license.hclic
+${boundary_license}
+EOF
+
+# Parse database connection details
+DB_HOST=$(echo ${db_endpoint} | cut -d: -f1)
+DB_PORT=$(echo ${db_endpoint} | cut -d: -f2)
+
+# Create Boundary configuration file
+cat << EOF > /opt/boundary/config/controller.hcl
+# Controller configuration
+disable_mlock = true
+
+# API listener configuration
+listener "api" {
+  address = "0.0.0.0:9200"
+  purpose = "api"
+  tls_disable = false
+  
+  # Self-signed TLS certificate
+  tls_cert_file = "/opt/boundary/config/cert.pem"
+  tls_key_file  = "/opt/boundary/config/key.pem"
+}
+
+# Cluster listener for worker coordination
+listener "cluster" {
+  address = "0.0.0.0:9201"
+  purpose = "cluster"
+}
+
+# Data plane listener for worker connections
+listener "proxy" {
+  address = "0.0.0.0:9202"
+  purpose = "proxy"
+}
+
+# Controller configuration
+controller {
+  name = "$(hostname)"
+  description = "Boundary controller instance"
+  
+  # Database configuration
+  database {
+    url = "postgresql://${db_username}:${db_password}@$DB_HOST:$DB_PORT/boundary?sslmode=disable"
+  }
+}
+
+# KMS configuration
+kms "aws" {
+  purpose = "root"
+  key_id  = "${root_kms_key_id}"
+}
+
+kms "aws" {
+  purpose = "worker-auth"
+  key_id  = "${worker_auth_kms_key_id}"
+}
+
+kms "aws" {
+  purpose = "recovery"
+  key_id  = "${recovery_kms_key_id}"
+}
+
+# License configuration
+license {
+  path = "/opt/boundary/config/license.hclic"
+}
+
+# Log configuration
+log_level = "info"
+log_format = "json"
+
+# Initial admin user (used only for first-time initialization)
+initial_auth_method {
+  name        = "Default Password Auth Method"
+  description = "Default password auth method with admin user"
+  type        = "password"
+  
+  default_scope_id = "global"
+  
+  # Create initial admin user
+  initial_auth_account {
+    login_name  = "${initial_admin_username}"
+    password    = "${initial_admin_password}"
+    
+    # Add admin user to admin role
+    initial_auth_roles = ["admin"]
+  }
+}
+
+# Event configuration
+events {
+  audit_enabled       = true
+  observations_enabled = true
+  sysevents_enabled    = true
+}
+EOF
+
+# Generate self-signed TLS certificate
+openssl req -x509 -newkey rsa:4096 -keyout /opt/boundary/config/key.pem -out /opt/boundary/config/cert.pem -days 365 -nodes -subj "/CN=$(hostname)"
+
+# Create systemd service
+cat << 'EOF' > /etc/systemd/system/boundary.service
+[Unit]
+Description=Boundary Controller Service
+Documentation=https://www.boundaryproject.io/docs
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+User=root
+Group=root
+ExecStart=/usr/bin/boundary server -config /opt/boundary/config/controller.hcl
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+KillSignal=SIGINT
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Set proper permissions
+chmod 0644 /etc/systemd/system/boundary.service
+chmod 0640 /opt/boundary/config/controller.hcl
+chmod 0640 /opt/boundary/config/license.hclic
+chmod 0600 /opt/boundary/config/key.pem
+chmod 0644 /opt/boundary/config/cert.pem
+
+# Enable and start Boundary service
+systemctl daemon-reload
+systemctl enable boundary
+systemctl start boundary
+
+# Save worker token for worker registration
+echo "${worker_token}" > /opt/boundary/config/worker-token.key
+chmod 0600 /opt/boundary/config/worker-token.key
+
+# Configure CloudWatch Logs
+cat << EOF > /etc/awslogs/awslogs.conf
+[general]
+state_file = /var/lib/awslogs/agent-state
+
+[/var/log/boundary/boundary.log]
+file = /var/log/boundary/boundary.log
+log_group_name = /boundary/controller/${name}
+log_stream_name = {instance_id}
+datetime_format = %Y-%m-%dT%H:%M:%S.%f
+EOF
+
+# Start CloudWatch Logs
+yum install -y awslogs
+systemctl enable awslogsd
+systemctl start awslogsd
+
+# Get the auth method ID and save it (for reference by Terraform)
+sleep 30
+AUTH_METHOD_ID=$(curl -s -k https://localhost:9200/v1/auth-methods?scope_id=global | jq -r '.items[0].id')
+echo "$AUTH_METHOD_ID" > /opt/boundary/config/auth-method-id
+aws ssm put-parameter --region $(curl -s http://169.254.169.254/latest/meta-data/placement/region) --name "/boundary/${name}/auth_method_id" --type "String" --value "$AUTH_METHOD_ID" --overwrite
