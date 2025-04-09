@@ -1,0 +1,23 @@
+# AWS Configuration
+aws_region      = "us-east-1"
+vpc_cidr        = "10.0.0.0/16"
+public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
+private_subnets = ["10.0.3.0/24", "10.0.4.0/24"]
+
+# Boundary Configuration
+boundary_version      = "0.15.0+ent"
+boundary_license_path = "./license.hclic"
+
+# Database Configuration
+db_username      = "boundary"
+db_password      = "your-secure-password" # Change this!
+db_instance_type = "db.t3.medium"
+
+# EC2 Configuration
+controller_instance_type = "t3.medium"
+worker_instance_type     = "t3.medium"
+ssh_key_name             = "your-key-name"
+
+# Admin Credentials
+initial_admin_username = "admin"
+initial_admin_password = "your-secure-admin-password" # Change this!
