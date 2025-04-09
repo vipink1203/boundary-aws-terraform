@@ -35,6 +35,17 @@ variable "boundary_license_path" {
   type        = string
 }
 
+# AMI Configuration
+variable "controller_ami_id" {
+  description = "ID of the custom AMI to use for the controller"
+  type        = string
+}
+
+variable "worker_ami_id" {
+  description = "ID of the custom AMI to use for the worker"
+  type        = string
+}
+
 # Database Configuration
 variable "db_username" {
   description = "Username for the database"
