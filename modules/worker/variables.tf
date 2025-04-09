@@ -9,6 +9,11 @@ variable "instance_type" {
   default     = "t3.medium"
 }
 
+variable "ami_id" {
+  description = "ID of the custom AMI to use for the worker"
+  type        = string
+}
+
 variable "subnet_id" {
   description = "ID of the subnet where the worker will be deployed"
   type        = string
