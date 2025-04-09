@@ -8,6 +8,10 @@ private_subnets = ["10.0.3.0/24", "10.0.4.0/24"]
 boundary_version      = "0.15.0+ent"
 boundary_license_path = "./license.hclic"
 
+# AMI Configuration
+controller_ami_id     = "ami-01234567890abcdef" # Replace with your controller AMI ID
+worker_ami_id         = "ami-01234567890abcdef" # Replace with your worker AMI ID
+
 # Database Configuration
 db_username      = "boundary"
 db_password      = "your-secure-password" # Change this!
