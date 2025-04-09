@@ -70,38 +70,13 @@ resource "aws_kms_alias" "boundary_recovery" {
   target_key_id = aws_kms_key.boundary_recovery.key_id
 }
 
-# VPC for Boundary infrastructure
-module "vpc" {
-  source = "./modules/vpc"
-
-  name                = "${local.name_prefix}-vpc-${random_id.id.hex}"
-  cidr                = var.vpc_cidr
-  public_subnets      = var.public_subnets
-  private_subnets     = var.private_subnets
-  availability_zones  = data.aws_availability_zones.available.names
-  common_tags         = local.common_tags
-}
-
 # Security groups for Boundary components
 module "security_groups" {
   source = "./modules/security_groups"
 
-  name       = local.name_prefix
-  vpc_id     = module.vpc.vpc_id
+  name        = local.name_prefix
+  vpc_id      = var.vpc_id
   common_tags = local.common_tags
-}
-
-# Database for Boundary storage
-module "database" {
-  source = "./modules/database"
-
-  name                = "${local.name_prefix}-db-${random_id.id.hex}"
-  instance_type       = var.db_instance_type
-  username            = var.db_username
-  password            = var.db_password
-  subnet_ids          = module.vpc.private_subnet_ids
-  security_group_id   = module.security_groups.database_sg_id
-  common_tags         = local.common_tags
 }
 
 # Boundary controller instance
@@ -111,10 +86,10 @@ module "controller" {
   name                    = "${local.name_prefix}-controller-${random_id.id.hex}"
   ami_id                  = var.controller_ami_id
   instance_type           = var.controller_instance_type
-  subnet_id               = module.vpc.private_subnet_ids[0]
+  subnet_id               = var.private_subnet_ids[0]
   security_group_id       = module.security_groups.controller_sg_id
   ssh_key_name            = var.ssh_key_name
-  db_endpoint             = module.database.endpoint
+  db_endpoint             = var.db_endpoint
   db_username             = var.db_username
   db_password             = var.db_password
   root_kms_key_id         = aws_kms_key.boundary_root.key_id
@@ -134,7 +109,7 @@ module "worker" {
   name                    = "${local.name_prefix}-worker-${random_id.id.hex}"
   ami_id                  = var.worker_ami_id
   instance_type           = var.worker_instance_type
-  subnet_id               = module.vpc.public_subnet_ids[0]
+  subnet_id               = var.public_subnet_ids[0]
   security_group_id       = module.security_groups.worker_sg_id
   ssh_key_name            = var.ssh_key_name
   controller_generated_token = module.controller.worker_token
@@ -148,7 +123,8 @@ module "load_balancer" {
   source = "./modules/load_balancer"
 
   name                = "${local.name_prefix}-lb-${random_id.id.hex}"
-  public_subnet_ids   = module.vpc.public_subnet_ids
+  vpc_id              = var.vpc_id
+  public_subnet_ids   = var.public_subnet_ids
   security_group_id   = module.security_groups.lb_sg_id
   controller_instance_id = module.controller.instance_id
   worker_instance_id  = module.worker.instance_id
