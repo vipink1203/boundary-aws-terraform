@@ -10,9 +10,10 @@ This repository contains Terraform code to deploy HashiCorp Boundary in AWS for 
 
 - Production-ready (non-dev mode) deployment
 - Enterprise license support
+- Support for custom AMIs
+- Uses existing VPC and database infrastructure
 - Separate controller and worker nodes
 - AWS KMS integration for encryption
-- Postgres database for storage
 - SSH key-based authentication for target hosts
 - Password-based authentication for Boundary users
 
@@ -21,19 +22,20 @@ This repository contains Terraform code to deploy HashiCorp Boundary in AWS for 
 - AWS account with appropriate permissions
 - Terraform 1.5 or later
 - HashiCorp Boundary Enterprise license
-- SSH key pair for accessing target hosts
-- AWS CLI configured with appropriate credentials
+- Existing VPC with public and private subnets
+- Existing PostgreSQL database
+- (Optional) Custom AMIs for controller and worker
+- SSH key pair for accessing instances
 
 ## Architecture
 
 This deployment creates:
 
-1. **Network Infrastructure**: VPCs, subnets, security groups, and NAT gateways
-2. **Boundary Controller**: EC2 instance running the Boundary controller service
-3. **Boundary Worker**: EC2 instance running the Boundary worker service
-4. **Database**: RDS PostgreSQL instance for Boundary storage
-5. **KMS Keys**: For data encryption
-6. **Load Balancers**: For high availability and secure access
+1. **Boundary Controller**: EC2 instance running the Boundary controller service
+2. **Boundary Worker**: EC2 instance running the Boundary worker service
+3. **KMS Keys**: For data encryption
+4. **Load Balancer**: For secure access
+5. **Security Groups**: For controlling access to components
 
 ## Deployment Steps
 
